@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
-from PIL import Image
 
 # ✅ Primeira chamada obrigatória
 st.set_page_config(page_title="Análise de Intervalos de Confiança", layout="centered")
@@ -16,14 +15,14 @@ st.markdown("""
     .viewerBadge_container__1QSob {visibility: hidden;}
     .main .block-container {
         padding-top: 2rem;
-        background-color: white;  /* Garante fundo branco para o container */
-        border: none;  /* Remove qualquer borda indesejada */
+        background-color: white;
+        border: none;
     }
     body, .main, .block-container {
-        background-color: white !important;  /* Garante que o fundo será branco */
+        background-color: white !important;
         color: #3e3553;
         font-family: 'Segoe UI', sans-serif;
-        margin: 0;  /* Remove margens indesejadas */
+        margin: 0;
     }
     section[data-testid="stSidebar"] {
         background-color: #5e4b8b !important;
@@ -47,74 +46,42 @@ st.markdown("""
         margin-bottom: 25px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.05);
     }
-    .banner {
-        background-color: #5e4b8b;
-        color: white;
-        padding: 1.5rem;
-        text-align: center;
-        font-size: 1.5rem;
-        font-weight: 600;
-        border-radius: 10px;
-        margin-bottom: 40px;
-        letter-spacing: 0.5px;
-    }
-    .footer {
-        font-size: 0.9rem;
-        color: #777;
-        text-align: center;
-        margin-top: 40px;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# 🌟 Título da Página
 st.title("🔍 Intervalos de Confiança por Categoria de Estação")
-st.markdown("Aplicação de Intervalos de Confiança, visualizações e interpretações práticas com base nos dados de metais pesados.")
 
-# --- Carregar os dados ---
 @st.cache_data
 def load_data():
     df = pd.read_excel("dados_metais_com_categoria.xlsx")
-    df.columns = df.columns.str.strip().str.upper()
+    df.columns = df.columns.str.strip().str.title()
     return df
 
 df = load_data()
 
-# --- Visualização do dataset ---
 st.markdown('<div class="lavender-box">', unsafe_allow_html=True)
 st.subheader("🧾 Dados Carregados")
-st.markdown("Abaixo estão as amostras de concentração de metais pesados por estação de coleta:")
 st.dataframe(df, use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- Explicação das colunas ---
 st.markdown('<div class="lavender-box">', unsafe_allow_html=True)
-st.subheader("📘 Dicionário das Colunas do Dataset")
+st.subheader("📘 Dicionário das Colunas")
 st.markdown("""
-- **ESTAÇÃO**: Código da estação de coleta da amostra de água (ex: RD009, RD085...).
-- **CATEGORIA**: Classificação da estação com base na proximidade ao evento de contaminação:
-  - `INCIDENTE`: diretamente afetadas;
-  - `MÉDIOS`: próximas ao incidente;
-  - `LONGES`: regiões mais afastadas.
-- **DATA**: Data da coleta da amostra.
-- **ARSÊNIO TOTAL**: Concentração total de arsênio presente na água (μg/L).
-- **FERRO DISSOLVIDO**: Concentração de ferro dissolvido na amostra (μg/L).
-- **MANGANÊS TOTAL**: Concentração total de manganês na água (μg/L).
+- **Estação**: Código da estação de coleta.
+- **Categoria**: Incidente (próximo), Medio, Longe.
+- **Arsênio Total**, **Ferro Dissolvido**, **Manganês Total**: Concentrações dos metais (μg/L).
 """)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- Define os grupos ---
 grupos = {
     "INCIDENTE": ["RD009", "RD075", "RD074", "RD059"],
     "LONGES": ["RD095", "RD085"],
     "MEDIOS": ["RD083", "RD039"]
 }
 
-# --- Escolha da métrica numérica para análise ---
 colunas_numericas = df.select_dtypes(include=np.number).columns.tolist()
 coluna_selecionada = st.selectbox("Selecione o tipo de metal para análise:", colunas_numericas)
 
-# --- Função para cálculo de intervalo de confiança ---
 def calcular_ic(dados, alpha=0.05):
     n = len(dados)
     media = np.mean(dados)
@@ -122,22 +89,13 @@ def calcular_ic(dados, alpha=0.05):
     margem_erro = stats.t.ppf(1 - alpha/2, df=n-1) * erro_padrao
     return media, media - margem_erro, media + margem_erro
 
-# --- Análise por grupo ---
 for grupo_nome, regioes in grupos.items():
     st.subheader(f"📊 Categoria: {grupo_nome}")
-    
-    grupo_df = df[df["ESTAÇÃO"].isin(regioes)]
-
-    if grupo_df.empty:
-        st.warning(f"Nenhum dado encontrado para a categoria {grupo_nome}.")
-        continue
-
-    # 🔹 Cálculo do IC para a categoria inteira (todas as estações juntas)
+    grupo_df = df[df["Estação"].isin(regioes)]
     valores_categoria = grupo_df[coluna_selecionada].dropna()
 
     if not valores_categoria.empty:
         media_cat, ic_min_cat, ic_max_cat = calcular_ic(valores_categoria)
-        
         st.markdown(f"**Resumo da Categoria `{grupo_nome}`**")
         st.write(f"Média geral: `{media_cat:.2f}`, IC 95%: [`{ic_min_cat:.2f}`, `{ic_max_cat:.2f}`]")
 
@@ -150,22 +108,14 @@ for grupo_nome, regioes in grupos.items():
         ax_cat.legend()
         st.pyplot(fig_cat)
 
-        st.success(
-            f"Para a categoria **{grupo_nome}**, o intervalo de confiança de 95% da média de `{coluna_selecionada}` "
-            f"está entre **{ic_min_cat:.2f}** e **{ic_max_cat:.2f}**."
-        )
-
-    # 🔎 Análise por estação individual
     for estacao in regioes:
-        estacao_df = grupo_df[grupo_df["ESTAÇÃO"] == estacao]
+        estacao_df = grupo_df[grupo_df["Estação"] == estacao]
         valores = estacao_df[coluna_selecionada].dropna()
 
         if valores.empty:
-            st.warning(f"Sem dados válidos para {estacao} na métrica selecionada.")
             continue
 
         media, ic_min, ic_max = calcular_ic(valores)
-
         st.markdown(f"**Estação `{estacao}`**")
         st.write(f"Média: `{media:.2f}`, IC 95%: [`{ic_min:.2f}`, `{ic_max:.2f}`]")
 
@@ -178,7 +128,27 @@ for grupo_nome, regioes in grupos.items():
         ax.legend()
         st.pyplot(fig)
 
-        st.info(
-            f"O intervalo de confiança indica que há 95% de confiança de que a média real de `{coluna_selecionada}` na estação **{estacao}** "
-            f"esteja entre **{ic_min:.2f}** e **{ic_max:.2f}** com base na amostra."
-        )
+# --- Comparação geral entre categorias ---
+st.markdown('<div class="lavender-box">', unsafe_allow_html=True)
+st.subheader("📊 Comparação entre Categorias")
+
+df_filtrado = df[df['Categoria'].isin(['Incidente', 'Medio', 'Longe'])][['Categoria', 'Arsênio Total']].dropna()
+
+def plot_boxplot_violin(df_filtrado):
+    fig, axs = plt.subplots(1, 2, figsize=(14, 6))
+    sns.boxplot(data=df_filtrado, x='Categoria', y='Arsênio Total', palette='Pastel1', ax=axs[0])
+    axs[0].set_title('Boxplot - Arsênio Total por Categoria')
+    axs[0].set_ylabel('ARSÊNIO TOTAL')
+    axs[0].set_xlabel('Categoria')
+
+    sns.violinplot(data=df_filtrado, x='Categoria', y='Arsênio Total', palette='Pastel2', ax=axs[1])
+    axs[1].set_title('Violin Plot - Arsênio Total por Categoria')
+    axs[1].set_ylabel('ARSÊNIO TOTAL')
+    axs[1].set_xlabel('Categoria')
+
+    plt.tight_layout()
+    return fig
+
+fig_comparativo = plot_boxplot_violin(df_filtrado)
+st.pyplot(fig_comparativo)
+st.markdown('</div>', unsafe_allow_html=True)
